@@ -5,7 +5,7 @@ import { format, startOfMonth, endOfMonth, parseISO, isAfter, isBefore, isEqual 
 import { Download, Calendar as CalendarIcon, Filter } from "lucide-react";
 
 import { db } from "../db";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -14,9 +14,9 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { formatCurrency } from "@/lib/utils";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 
 export function Reports() {
     const [startDate, setStartDate] = useState<Date>(startOfMonth(new Date()));
@@ -36,18 +36,13 @@ export function Reports() {
             (isBefore(tDate, eDate) || isEqual(tDate, eDate));
     }) || [];
 
-    // Group by month string like "March 2026"
-    const monthlySummary = filteredTransactions.reduce((acc, t) => {
-        const monthYear = format(parseISO(t.timestamp), 'MMMM yyyy');
-        if (!acc[monthYear]) {
-            acc[monthYear] = { income: 0, expense: 0, net: 0, count: 0 };
-        }
-        acc[monthYear].count++;
-        if (t.amount > 0) acc[monthYear].income += t.amount;
-        if (t.amount < 0) acc[monthYear].expense += Math.abs(t.amount);
-        acc[monthYear].net += t.amount;
+    // Calculate totals across the selected date range
+    const totals = filteredTransactions.reduce((acc, t) => {
+        if (t.amount > 0) acc.income += t.amount;
+        if (t.amount < 0) acc.expense += Math.abs(t.amount);
+        acc.net += t.amount;
         return acc;
-    }, {} as Record<string, { income: number, expense: number, net: number, count: number }>);
+    }, { income: 0, expense: 0, net: 0 });
 
     const exportToExcel = () => {
         if (filteredTransactions.length === 0) {
@@ -79,115 +74,135 @@ export function Reports() {
                 <p className="text-zinc-400">Analyze your spending and extract offline backups.</p>
             </div>
 
-            <Card className="bg-zinc-900 border-zinc-800 text-zinc-50">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Filter className="w-5 h-5 text-emerald-400" />
-                        Data Range Filter
-                    </CardTitle>
-                    <CardDescription className="text-zinc-400">Select the period for your report grouping and excel export.</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex flex-col md:flex-row gap-6 mt-4 items-end">
-                        <div className="flex flex-col gap-2 flex-1 w-full relative">
-                            <Label className="text-zinc-300">Start Date</Label>
-                            <Popover>
-                                <PopoverTrigger>
-                                    <div>
-                                        <Button
-                                            variant={"outline"}
-                                            className={cn(
-                                                "w-full justify-start text-left font-normal bg-zinc-950 border-zinc-800",
-                                                !startDate && "text-muted-foreground"
-                                            )}
-                                        >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {startDate ? format(startDate, "PPP") : <span>Pick a date</span>}
-                                        </Button>
-                                    </div>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0 bg-zinc-900 border-zinc-800 z-50 pointer-events-auto" align="start">
-                                    <Calendar
-                                        mode="single"
-                                        selected={startDate}
-                                        onSelect={(d) => d && setStartDate(d)}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                        </div>
+            <div className="flex flex-col md:flex-row items-center justify-between gap-1 bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    <Filter className="w-5 h-5 text-emerald-400 hidden sm:block" />
 
-                        <div className="flex flex-col gap-2 flex-1 w-full relative">
-                            <Label className="text-zinc-300">End Date</Label>
-                            <Popover>
-                                <PopoverTrigger>
-                                    <div>
-                                        <Button
-                                            variant={"outline"}
-                                            className={cn(
-                                                "w-full justify-start text-left font-normal bg-zinc-950 border-zinc-800",
-                                                !endDate && "text-muted-foreground"
-                                            )}
-                                        >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {endDate ? format(endDate, "PPP") : <span>Pick a date</span>}
-                                        </Button>
-                                    </div>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0 bg-zinc-900 border-zinc-800 z-50 pointer-events-auto" align="start">
-                                    <Calendar
-                                        mode="single"
-                                        selected={endDate}
-                                        onSelect={(d) => d && setEndDate(d)}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                        </div>
+                    <Popover>
+                        <PopoverTrigger
+                            className={cn(
+                                buttonVariants({ variant: "outline" }),
+                                "w-[140px] sm:w-[180px] justify-start text-left font-normal bg-zinc-950 border-zinc-800",
+                                !startDate && "text-muted-foreground"
+                            )}
+                        >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {startDate ? format(startDate, "MMM d, yyyy") : <span>Start</span>}
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 bg-zinc-900 border-zinc-800 z-50 pointer-events-auto" align="start">
+                            <Calendar
+                                mode="single"
+                                selected={startDate}
+                                onSelect={(d) => d && setStartDate(d)}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
 
-                        <Button onClick={exportToExcel} className="w-full md:w-auto bg-emerald-500 hover:bg-emerald-600 text-zinc-950 gap-2">
-                            <Download className="w-4 h-4" />
-                            Export to Excel
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
+                    <span className="text-zinc-500 font-medium">to</span>
+
+                    <Popover>
+                        <PopoverTrigger
+                            className={cn(
+                                buttonVariants({ variant: "outline" }),
+                                "w-[140px] sm:w-[180px] justify-start text-left font-normal bg-zinc-950 border-zinc-800",
+                                !endDate && "text-muted-foreground"
+                            )}
+                        >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {endDate ? format(endDate, "MMM d, yyyy") : <span>End</span>}
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 bg-zinc-900 border-zinc-800 z-50 pointer-events-auto" align="start">
+                            <Calendar
+                                mode="single"
+                                selected={endDate}
+                                onSelect={(d) => d && setEndDate(d)}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
+                </div>
+
+                <Button onClick={exportToExcel} size="sm" className="w-full md:w-auto bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-medium whitespace-nowrap">
+                    <Download className="w-4 h-4 mr-2" />
+                    Export
+                </Button>
+            </div>
 
             <Card className="bg-zinc-900 border-zinc-800 text-zinc-50">
                 <CardHeader>
-                    <CardTitle>Monthly Summaries</CardTitle>
-                    <CardDescription className="text-zinc-400">In the selected date range: {format(startDate, "MMM d, yyyy")} - {format(endDate, "MMM d, yyyy")}</CardDescription>
+                    <CardTitle>Transactions Log</CardTitle>
+                    <CardDescription className="text-zinc-400">Showing {filteredTransactions.length} entries between {format(startDate, "MMM d, yyyy")} and {format(endDate, "MMM d, yyyy")}</CardDescription>
                 </CardHeader>
-                <CardContent>
-                    {Object.keys(monthlySummary).length === 0 ? (
+                <CardContent className="overflow-x-auto">
+                    {filteredTransactions.length === 0 ? (
                         <div className="text-zinc-500 py-8 text-center bg-zinc-950/50 rounded border border-zinc-800 border-dashed">
                             No data points found in this range.
                         </div>
                     ) : (
-                        <Table>
-                            <TableHeader className="border-zinc-800">
-                                <TableRow className="border-zinc-800 hover:bg-zinc-800/50">
-                                    <TableHead className="w-[150px] text-zinc-400">Month</TableHead>
-                                    <TableHead className="text-zinc-400">Transactions</TableHead>
-                                    <TableHead className="text-rose-400">Total Expense</TableHead>
-                                    <TableHead className="text-emerald-400">Total Income</TableHead>
-                                    <TableHead className="text-right text-zinc-400">Net Flow</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {Object.entries(monthlySummary).map(([month, data]) => (
-                                    <TableRow key={month} className="border-zinc-800 hover:bg-zinc-800/50">
-                                        <TableCell className="font-medium text-zinc-200">{month}</TableCell>
-                                        <TableCell className="text-zinc-400">{data.count} entries</TableCell>
-                                        <TableCell className="text-rose-400">{formatCurrency(data.expense)}</TableCell>
-                                        <TableCell className="text-emerald-400">{formatCurrency(data.income)}</TableCell>
-                                        <TableCell className={`text-right font-bold ${data.net >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                            {data.net > 0 ? "+" : ""}{formatCurrency(data.net)}
-                                        </TableCell>
+                        <div className="space-y-6">
+                            <div className="flex flex-col sm:flex-row gap-2 sm:gap-4 mb-4">
+                                <div className="flex items-center justify-between sm:justify-start sm:gap-2 bg-zinc-950 rounded-md border border-zinc-800 px-3 py-2 flex-1">
+                                    <span className="text-sm font-medium text-zinc-400">Income</span>
+                                    <span className="font-bold text-emerald-400">{formatCurrency(totals.income)}</span>
+                                </div>
+                                <div className="flex items-center justify-between sm:justify-start sm:gap-2 bg-zinc-950 rounded-md border border-zinc-800 px-3 py-2 flex-1">
+                                    <span className="text-sm font-medium text-zinc-400">Expense</span>
+                                    <span className="font-bold text-rose-400">{formatCurrency(totals.expense)}</span>
+                                </div>
+                                <div className="flex items-center justify-between sm:justify-start sm:gap-2 bg-zinc-950 rounded-md border border-zinc-800 px-3 py-2 flex-1">
+                                    <span className="text-sm font-medium text-zinc-400">Net Flow</span>
+                                    <span className={`font-bold ${totals.net >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                        {totals.net > 0 ? "+" : ""}{formatCurrency(totals.net)}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <Table>
+                                <TableHeader className="border-zinc-800">
+                                    <TableRow className="border-zinc-800 hover:bg-zinc-800/50">
+                                        <TableHead className="w-[120px] text-zinc-400">Date</TableHead>
+                                        <TableHead className="text-zinc-400">Title</TableHead>
+                                        <TableHead className="text-zinc-400 hidden sm:table-cell">Source</TableHead>
+                                        <TableHead className="text-zinc-400 hidden sm:table-cell">Cash Flow</TableHead>
+                                        <TableHead className="text-right text-zinc-400">Amount</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredTransactions.map((t) => (
+                                        <TableRow key={t.id} className="border-zinc-800 hover:bg-zinc-800/50">
+                                            <TableCell className="font-medium text-zinc-300">
+                                                {format(parseISO(t.timestamp), 'MMM d, yyyy')}
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-col">
+                                                    <span className="text-zinc-200">{t.title}</span>
+                                                    <span className="text-xs text-zinc-500 sm:hidden">
+                                                        {t.source} {t.category ? `• ${t.category}` : ''}
+                                                    </span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="hidden sm:table-cell">
+                                                <Badge variant="outline" className="border-zinc-700 text-zinc-300">{t.source}</Badge>
+                                            </TableCell>
+                                            <TableCell className="hidden sm:table-cell">
+                                                <div className="flex gap-2">
+                                                    <Badge variant="secondary" className="bg-zinc-800 text-zinc-300 hover:bg-zinc-700">{t.type}</Badge>
+                                                    {t.category && (
+                                                        <Badge variant="outline" className={`border-zinc-700 ${t.category === 'Need' ? 'text-blue-400' : t.category === 'Want' ? 'text-purple-400' : 'text-zinc-400'}`}>
+                                                            {t.category}
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className={`text-right ${t.amount > 0 ? 'text-emerald-400' : 'text-zinc-100'}`}>
+                                                {t.amount > 0 ? '+' : '-'}{formatCurrency(t.amount)}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
                     )}
                 </CardContent>
             </Card>

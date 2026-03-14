@@ -37,7 +37,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 const formSchema = z.object({
     title: z.string().min(2, "Title must be at least 2 characters").max(50),
     amount: z.coerce.number().positive("Amount must be greater than zero"),
-    type: z.enum(["debit", "credit", "lend", "borrowed"]),
+    type: z.enum(["Debit", "Credit"]),
     source: z.string().min(1, "Please select a source account"),
     category: z.enum(["Need", "Want", "Other"]).optional(),
     timestamp: z.date(),
@@ -54,7 +54,7 @@ export function TransactionForm() {
         defaultValues: {
             title: "",
             amount: 0,
-            type: "debit",
+            type: "Debit",
             source: "",
             category: "Need",
             timestamp: new Date(),
@@ -88,7 +88,7 @@ export function TransactionForm() {
     async function onSubmit(values: z.infer<typeof formSchema>) {
         // Determine the actual signed amount based on type
         let finalAmount = values.amount;
-        if (values.type === 'debit' || values.type === 'borrowed') {
+        if (values.type === 'Debit') {
             finalAmount = -Math.abs(values.amount);
         }
 
@@ -231,7 +231,7 @@ export function TransactionForm() {
                                     name="type"
                                     render={({ field }: { field: any }) => (
                                         <FormItem>
-                                            <FormLabel>Type</FormLabel>
+                                            <FormLabel>Cash Flow</FormLabel>
                                             <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger className="bg-zinc-950 border-zinc-800 text-zinc-300 focus:ring-emerald-500">
@@ -239,10 +239,8 @@ export function TransactionForm() {
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-50">
-                                                    <SelectItem value="debit">Debit (Expense)</SelectItem>
-                                                    <SelectItem value="credit">Credit (Income)</SelectItem>
-                                                    <SelectItem value="lend">Lend</SelectItem>
-                                                    <SelectItem value="borrowed">Borrowed</SelectItem>
+                                                    <SelectItem value="Debit">Debit (Expense)</SelectItem>
+                                                    <SelectItem value="Credit">Credit (Income)</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage className="text-rose-500" />

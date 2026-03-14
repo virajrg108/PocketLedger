@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 
-export type TransactionType = 'debit' | 'credit' | 'lend' | 'borrowed';
+export type TransactionType = 'Debit' | 'Credit';
 export type TransactionSource = string;
 
 export interface Transaction {

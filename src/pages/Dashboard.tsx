@@ -1,11 +1,13 @@
+
 import { useLiveQuery } from "dexie-react-hooks";
 import { Link } from "react-router-dom";
+import { format, parseISO } from "date-fns";
 import { db } from "../db";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { DollarSign, ArrowDownRight, ArrowUpRight, Trash2 } from "lucide-react";
+import { DollarSign, Trash2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 
 export function Dashboard() {
@@ -16,9 +18,7 @@ export function Dashboard() {
 
     // We don't need hardcoded balances anymore, just use the array
 
-    // Total lent / borrowed remain global
-    const totalLent = transactions.filter(t => t.type === 'lend').reduce((acc, t) => acc + Math.abs(t.amount), 0);
-    const totalBorrowed = transactions.filter(t => t.type === 'borrowed').reduce((acc, t) => acc + Math.abs(t.amount), 0);
+    // Calculate global metrics if needed, currently dynamically building via grid
 
     const handleDelete = async (id?: number) => {
         if (!id) return;
@@ -53,28 +53,6 @@ export function Dashboard() {
                         </Card>
                     );
                 })}
-
-                <Card className="bg-zinc-900 border-zinc-800 text-zinc-50 col-span-1">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                        <CardTitle className="text-sm font-medium">Total Lent</CardTitle>
-                        <ArrowUpRight className="w-4 h-4 text-emerald-400" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-emerald-400">{formatCurrency(totalLent)}</div>
-                        <p className="text-xs text-zinc-500 mt-2">Owed to you</p>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-zinc-900 border-zinc-800 text-zinc-50 col-span-1">
-                    <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                        <CardTitle className="text-sm font-medium">Total Borrowed</CardTitle>
-                        <ArrowDownRight className="w-4 h-4 text-orange-400" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-orange-400">{formatCurrency(totalBorrowed)}</div>
-                        <p className="text-xs text-zinc-500 mt-2">You owe</p>
-                    </CardContent>
-                </Card>
             </div>
 
             <Card className="bg-zinc-900 border-zinc-800 text-zinc-50">
@@ -86,10 +64,10 @@ export function Dashboard() {
                     <Table>
                         <TableHeader className="border-zinc-800">
                             <TableRow className="border-zinc-800 hover:bg-zinc-800/50">
-                                <TableHead className="w-[100px] text-zinc-400">Date</TableHead>
+                                <TableHead className="w-[60px] text-zinc-400">Date</TableHead>
                                 <TableHead className="text-zinc-400">Title</TableHead>
                                 <TableHead className="text-zinc-400 hidden md:table-cell">Source</TableHead>
-                                <TableHead className="text-zinc-400 hidden sm:table-cell">Type & Category</TableHead>
+                                <TableHead className="text-zinc-400 hidden sm:table-cell">Cash Flow</TableHead>
                                 <TableHead className="text-right text-zinc-400">Amount</TableHead>
                                 <TableHead className="w-[80px]"></TableHead>
                             </TableRow>
@@ -105,7 +83,7 @@ export function Dashboard() {
                                 transactions.slice(0, 10).map((t) => (
                                     <TableRow key={t.id} className="border-zinc-800 hover:bg-zinc-800/50">
                                         <TableCell className="font-medium text-zinc-300">
-                                            {new Date(t.timestamp).toLocaleDateString()}
+                                            {format(parseISO(t.timestamp), 'dd/MM')}
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex flex-col">
