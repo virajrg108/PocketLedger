@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 
-export type TransactionType = 'Debit' | 'Credit';
+export type TransactionType = 'Debit' | 'Credit' | 'Transfer';
 export type TransactionSource = string;
 
 export interface Transaction {
@@ -9,6 +9,7 @@ export interface Transaction {
     amount: number;
     type: TransactionType;
     source: TransactionSource;
+    toSource?: TransactionSource;
     category?: 'Need' | 'Want' | 'Other';
     timestamp: string; // Stored as ISO string
 }
@@ -37,6 +38,11 @@ db.version(1).stores({
 
 db.version(2).stores({
     transactions: '++id, title, amount, type, source, timestamp',
+    accounts: '++id, &name, initialBalance'
+});
+
+db.version(3).stores({
+    transactions: '++id, title, amount, type, source, toSource, timestamp',
     accounts: '++id, &name, initialBalance'
 });
 

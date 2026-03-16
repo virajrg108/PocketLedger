@@ -1,73 +1,85 @@
-# React + TypeScript + Vite
+# PocketLedger
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+PocketLedger is a fast, offline-first Progressive Web App (PWA) designed for logging and managing your daily financial transactions. By leveraging browser-native local storage (IndexedDB), PocketLedger keeps your financial data completely private and instantly accessible, even without an internet connection. No accounts, no servers, and zero latency.
 
-Currently, two official plugins are available:
+## Key Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Offline-First PWA:** Install it directly onto your desktop or mobile device. Run it without internet perfectly fine.
+- **Dynamic Dashboard:** A beautiful, intuitive overview showing real-time balances across your custom accounts (Bank, Credit Card, Cash, etc.) and recent history.
+- **Cash Flow Types:** Easily manage `Debit` (Expenses), `Credit` (Income), and `Transfer` (internal movements between accounts) types.
+- **Budgeting Categories:** Tag your debit expenses as a `Need`, a `Want`, or `Other` to better understand your spending habits.
+- **Detailed Analytics:** Flexible date-range filters allow you to view specific transactions and calculate total income, total expense, and net flow for any period.
+- **Excel Exports:** Instantly export your filtered transaction logs directly to `.xlsx` format for your own records.
+- **Data Privacy:** Your data never leaves your device. All transactions are stored locally in your browser's IndexedDB.
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Framework:** React + TypeScript + Vite
+- **Styling:** Tailwind CSS + Shadcn UI
+- **Database:** Dexie (IndexedDB wrapper)
+- **Exports:** SheetJS (`xlsx`)
+- **Routing:** React Router DOM
+- **Date Handling:** date-fns
 
-## Expanding the ESLint configuration
+## Getting Started
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+To run PocketLedger locally for development:
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## Production Build
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+To build the app for production (generating the service workers and PWA manifests):
+
+```bash
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Then serve the generated `dist` folder using any static file server (for example, `npx serve -s dist`).
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## How to Use (Mobile Guide)
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+PocketLedger is optimized for mobile screens. Below is a quick overview of how to navigate and use the core features on your phone:
+
+### 1. Initial Setup (Settings)
+Start by navigating to the **Settings** tab. Here, you can configure your custom accounts (like your checking account, wallet, or credit card) and set their initial real-world balances.
+
+<p align="center">
+  <!-- 📱 Suggested Screenshot: Settings screen showing Account configuration -->
+  <img src="./public/screenshots/settings.png" alt="Settings Page" width="250" />
+</p>
+
+### 2. Logging Transactions (New Entry)
+Tap the green **New Entry** button to log a transaction. 
+- Log your daily expenses as a **Debit**.
+- Log your income as a **Credit**.
+- Use **Transfer** when paying off your credit card from your bank account. Transfers safely move money between your accounts without artificially inflating your total monthly expenses!
+
+<p align="center">
+  <!-- 📱 Suggested Screenshot: Add Transaction screen filled out -->
+  <img src="./public/screenshots/new-entry.png" alt="New Entry Page" width="250" />
+</p>
+
+### 3. Monitoring Finances (Dashboard)
+Your **Dashboard** instantly updates to reflect your total available balances and a chronological list of your most recent transactions.
+
+<p align="center">
+  <!-- 📱 Suggested Screenshot: Dashboard showing balances and recent history -->
+  <img src="./public/screenshots/dashboard.png" alt="Dashboard Page" width="250" />
+</p>
+
+### 4. Analyzing Data (Reports)
+Use the **Reports** tab to filter your semantic history by date range. It will calculate your total income, expense, and net flow for that exact timeframe, and you can export the specific snapshot to an Excel file for backup.
+
+<p align="center">
+  <!-- 📱 Suggested Screenshot: Reports screen with date filter active -->
+  <img src="./public/screenshots/reports.png" alt="Reports Page" width="250" />
+</p>

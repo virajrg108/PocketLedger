@@ -37,10 +37,27 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 const formSchema = z.object({
     title: z.string().min(2, "Title must be at least 2 characters").max(50),
     amount: z.coerce.number().positive("Amount must be greater than zero"),
-    type: z.enum(["Debit", "Credit"]),
+    type: z.enum(["Debit", "Credit", "Transfer"]),
     source: z.string().min(1, "Please select a source account"),
+    toSource: z.string().optional(),
     category: z.enum(["Need", "Want", "Other"]).optional(),
     timestamp: z.date(),
+}).superRefine((data, ctx) => {
+    if (data.type === 'Transfer') {
+        if (!data.toSource) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Please select a destination account",
+                path: ["toSource"]
+            });
+        } else if (data.toSource === data.source) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "Destination cannot be same as source",
+                path: ["toSource"]
+            });
+        }
+    }
 });
 
 export function TransactionForm() {
@@ -53,9 +70,10 @@ export function TransactionForm() {
         resolver: zodResolver(formSchema) as any,
         defaultValues: {
             title: "",
-            amount: 0,
+            amount: undefined as unknown as number,
             type: "Debit",
             source: "",
+            toSource: "",
             category: "Need",
             timestamp: new Date(),
         },
@@ -72,6 +90,7 @@ export function TransactionForm() {
                         amount: Math.abs(tx.amount), // Form shows positive, submission handles sign
                         type: tx.type,
                         source: tx.source,
+                        toSource: tx.toSource || "",
                         category: tx.category || "Need",
                         timestamp: new Date(tx.timestamp),
                     });
@@ -90,6 +109,8 @@ export function TransactionForm() {
         let finalAmount = values.amount;
         if (values.type === 'Debit') {
             finalAmount = -Math.abs(values.amount);
+        } else if (values.type === 'Credit' || values.type === 'Transfer') {
+            finalAmount = Math.abs(values.amount); // Transfers store positive amounts
         }
 
         const transactionData = {
@@ -97,7 +118,8 @@ export function TransactionForm() {
             amount: finalAmount,
             type: values.type as TransactionType,
             source: values.source as TransactionSource,
-            category: values.category as "Need" | "Want" | "Other" | undefined,
+            toSource: values.type === 'Transfer' ? values.toSource as TransactionSource : undefined,
+            category: values.type !== 'Transfer' ? values.category as "Need" | "Want" | "Other" | undefined : undefined,
             timestamp: values.timestamp.toISOString(),
         };
 
@@ -123,6 +145,7 @@ export function TransactionForm() {
     }
 
     const accounts = useLiveQuery(() => db.accounts.toArray());
+    const watchedType = form.watch("type");
 
     if (loadError) return <div className="p-8 text-red-500">{loadError}</div>;
     // We optionally can wait for accounts to load to ensure dropdown isn't empty on fast loads
@@ -241,6 +264,7 @@ export function TransactionForm() {
                                                 <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-50">
                                                     <SelectItem value="Debit">Debit (Expense)</SelectItem>
                                                     <SelectItem value="Credit">Credit (Income)</SelectItem>
+                                                    <SelectItem value="Transfer">Transfer</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage className="text-rose-500" />
@@ -253,8 +277,8 @@ export function TransactionForm() {
                                     name="source"
                                     render={({ field }: { field: any }) => (
                                         <FormItem>
-                                            <FormLabel>Source Account</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormLabel>{watchedType === 'Transfer' ? 'From Account' : 'Source Account'}</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                                                 <FormControl>
                                                     <SelectTrigger className="bg-zinc-950 border-zinc-800 text-zinc-300 focus:ring-emerald-500">
                                                         <SelectValue placeholder="Select source" />
@@ -273,28 +297,59 @@ export function TransactionForm() {
                                         </FormItem>
                                     )}
                                 />
-                                <FormField
-                                    control={form.control}
-                                    name="category"
-                                    render={({ field }: { field: any }) => (
-                                        <FormItem>
-                                            <FormLabel>Category</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger className="bg-zinc-950 border-zinc-800 text-zinc-300 focus:ring-emerald-500">
-                                                        <SelectValue placeholder="Select category" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-50">
-                                                    <SelectItem value="Need">Need</SelectItem>
-                                                    <SelectItem value="Want">Want</SelectItem>
-                                                    <SelectItem value="Other">Other</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage className="text-rose-500" />
-                                        </FormItem>
-                                    )}
-                                />
+
+                                {watchedType === 'Transfer' && (
+                                    <FormField
+                                        control={form.control}
+                                        name="toSource"
+                                        render={({ field }: { field: any }) => (
+                                            <FormItem>
+                                                <FormLabel>To Account</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger className="bg-zinc-950 border-zinc-800 text-zinc-300 focus:ring-emerald-500">
+                                                            <SelectValue placeholder="Select destination" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-50">
+                                                        {accounts?.map((acc: any) => (
+                                                            <SelectItem key={acc.id} value={acc.name}>{acc.name}</SelectItem>
+                                                        ))}
+                                                        {accounts.length === 0 && (
+                                                            <SelectItem value="none" disabled>No accounts found, please configure in Settings.</SelectItem>
+                                                        )}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage className="text-rose-500" />
+                                            </FormItem>
+                                        )}
+                                    />
+                                )}
+
+                                {watchedType !== 'Transfer' && (
+                                    <FormField
+                                        control={form.control}
+                                        name="category"
+                                        render={({ field }: { field: any }) => (
+                                            <FormItem>
+                                                <FormLabel>Category</FormLabel>
+                                                <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger className="bg-zinc-950 border-zinc-800 text-zinc-300 focus:ring-emerald-500">
+                                                            <SelectValue placeholder="Select category" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent className="bg-zinc-900 border-zinc-800 text-zinc-50">
+                                                        <SelectItem value="Need">Need</SelectItem>
+                                                        <SelectItem value="Want">Want</SelectItem>
+                                                        <SelectItem value="Other">Other</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage className="text-rose-500" />
+                                            </FormItem>
+                                        )}
+                                    />
+                                )}
                             </div>
 
                             <Button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold">

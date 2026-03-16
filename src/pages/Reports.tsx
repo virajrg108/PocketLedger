@@ -38,6 +38,7 @@ export function Reports() {
 
     // Calculate totals across the selected date range
     const totals = filteredTransactions.reduce((acc, t) => {
+        if (t.type === 'Transfer') return acc;
         if (t.amount > 0) acc.income += t.amount;
         if (t.amount < 0) acc.expense += Math.abs(t.amount);
         acc.net += t.amount;
@@ -53,10 +54,10 @@ export function Reports() {
         const exportData = filteredTransactions.map(t => ({
             Date: format(parseISO(t.timestamp), 'PPp'),
             Description: t.title,
-            Category: t.source,
+            Category: t.type === 'Transfer' ? `${t.source} -> ${t.toSource}` : t.source,
             Type: t.type,
-            Amount: t.amount > 0 ? t.amount : -t.amount, // absolute val for sheet
-            Sign: t.amount > 0 ? "Credit" : "Debit"
+            Amount: Math.abs(t.amount),
+            Sign: t.type === 'Transfer' ? 'Neutral' : t.amount > 0 ? "Credit" : "Debit"
         }));
 
         const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -178,12 +179,21 @@ export function Reports() {
                                                 <div className="flex flex-col">
                                                     <span className="text-zinc-200">{t.title}</span>
                                                     <span className="text-xs text-zinc-500 sm:hidden">
-                                                        {t.source} {t.category ? `• ${t.category}` : ''}
+                                                        {t.type === 'Transfer' ? `${t.source} → ${t.toSource}` : t.source}
+                                                        {t.category ? ` • ${t.category}` : ''}
                                                     </span>
                                                 </div>
                                             </TableCell>
                                             <TableCell className="hidden sm:table-cell">
-                                                <Badge variant="outline" className="border-zinc-700 text-zinc-300">{t.source}</Badge>
+                                                {t.type === 'Transfer' ? (
+                                                    <div className="flex items-center gap-1 text-xs text-zinc-400">
+                                                        <span>{t.source}</span>
+                                                        <span>→</span>
+                                                        <span>{t.toSource}</span>
+                                                    </div>
+                                                ) : (
+                                                    <Badge variant="outline" className="border-zinc-700 text-zinc-300">{t.source}</Badge>
+                                                )}
                                             </TableCell>
                                             <TableCell className="hidden sm:table-cell">
                                                 <div className="flex gap-2">
@@ -195,8 +205,8 @@ export function Reports() {
                                                     )}
                                                 </div>
                                             </TableCell>
-                                            <TableCell className={`text-right ${t.amount > 0 ? 'text-emerald-400' : 'text-zinc-100'}`}>
-                                                {t.amount > 0 ? '+' : '-'}{formatCurrency(t.amount)}
+                                            <TableCell className={`text-right ${t.type === 'Transfer' ? 'text-blue-400' : t.amount > 0 ? 'text-emerald-400' : 'text-zinc-100'}`}>
+                                                {t.type === 'Transfer' ? '' : t.amount > 0 ? '+' : '-'}{formatCurrency(Math.abs(t.amount))}
                                             </TableCell>
                                         </TableRow>
                                     ))}
