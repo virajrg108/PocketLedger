@@ -8,10 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import React, { useRef, useState, useEffect } from "react";
-import { DollarSign, Trash2 } from "lucide-react";
+import { DollarSign, Trash2, Wallet } from "lucide-react";
 import { formatCurrency, cn } from "@/lib/utils";
 
-const FitText = ({ children, className }: { children: React.ReactNode; className?: string }) => {
+const FitText = ({ children, className, align = "left" }: { children: React.ReactNode; className?: string; align?: "left" | "center" }) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const textRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
@@ -41,7 +41,7 @@ const FitText = ({ children, className }: { children: React.ReactNode; className
                 ref={textRef}
                 style={{
                     transform: `scale(${scale})`,
-                    transformOrigin: "left center",
+                    transformOrigin: align === "center" ? "center center" : "left center",
                     willChange: "transform"
                 }}
             >
@@ -57,9 +57,19 @@ export function Dashboard() {
 
     if (!transactions || !accounts) return <div className="p-8 text-zinc-400">Loading offline data...</div>;
 
-    // We don't need hardcoded balances anymore, just use the array
-
-    // Calculate global metrics if needed, currently dynamically building via grid
+    const totalBalance = accounts.reduce((accTotal, acc) => {
+        const txSum = transactions.reduce((sum, t) => {
+            if (t.type !== 'Transfer' && t.source === acc.name) {
+                return sum + t.amount;
+            }
+            if (t.type === 'Transfer') {
+                if (t.source === acc.name) return sum - t.amount;
+                if (t.toSource === acc.name) return sum + t.amount;
+            }
+            return sum;
+        }, 0);
+        return accTotal + acc.initialBalance + txSum;
+    }, 0);
 
     const handleDelete = async (id?: number) => {
         if (!id) return;
@@ -74,6 +84,17 @@ export function Dashboard() {
                 <h2 className="text-lg md:text-3xl font-bold tracking-tight text-zinc-50">Overview</h2>
                 <p className="text-zinc-400  text-sm md:text-lg">Your financial snapshot</p>
             </div>
+
+            <Card className="gap-0 bg-gradient-to-r from-emerald-900/80 to-emerald-600/80 border-0 ring-0 text-zinc-50 shadow-md mb-4 text-center">
+                <CardHeader className="flex flex-row items-center justify-center pb-2">
+                    <CardTitle className="text-base font-medium">Total Balance</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <FitText align="center" className="justify-center text-2xl md:text-3xl font-bold tracking-tight">
+                        {totalBalance < 0 ? '-' : ''}{formatCurrency(totalBalance)}
+                    </FitText>
+                </CardContent>
+            </Card>
 
             <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
                 {accounts.map(acc => {
@@ -90,7 +111,7 @@ export function Dashboard() {
                     const currentBalance = acc.initialBalance + txSum;
 
                     return (
-                        <Card key={acc.id} className="bg-gradient-to-br from-zinc-800/80 to-zinc-900/90 border-0 ring-0 text-zinc-50 shadow-sm">
+                        <Card key={acc.id} className="gap-0 bg-gradient-to-br from-zinc-800/80 to-zinc-900/90 border-0 ring-0 text-zinc-50 shadow-sm">
                             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                                 <CardTitle className="text-sm font-medium truncate pr-2">{acc.name}</CardTitle>
                                 <DollarSign className="w-4 h-4 shrink-0 text-zinc-400" />

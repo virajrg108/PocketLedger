@@ -12,7 +12,7 @@ export default defineConfig({
       includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png', 'maskable-icon-512x512.png'],
       manifest: {
         name: 'PocketLedger',
-        short_name: 'Ledger',
+        short_name: 'Pocket Ledger',
         description: 'Offline-first personal finance tracker',
         theme_color: '#09090b',
         background_color: '#09090b',
