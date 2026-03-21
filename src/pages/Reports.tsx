@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { format, startOfMonth, endOfMonth, parseISO, isAfter, isBefore, isEqual } from "date-fns";
 import { Download, Calendar as CalendarIcon, Filter } from "lucide-react";
 
@@ -23,6 +23,7 @@ export function Reports() {
     const [endDate, setEndDate] = useState<Date>(endOfMonth(new Date()));
 
     const transactions = useLiveQuery(() => db.transactions.orderBy('timestamp').reverse().toArray());
+    const accounts = useLiveQuery(() => db.accounts.toArray());
 
     // Filter transactions by date range
     const filteredTransactions = transactions?.filter(t => {
@@ -45,27 +46,144 @@ export function Reports() {
         return acc;
     }, { income: 0, expense: 0, net: 0 });
 
-    const exportToExcel = () => {
+    const exportToExcel = async () => {
+        if (!transactions || !accounts) return;
         if (filteredTransactions.length === 0) {
             alert("No data available to export in this date range.");
             return;
         }
 
-        const exportData = filteredTransactions.map(t => ({
-            Date: format(parseISO(t.timestamp), 'PPp'),
-            Description: t.title,
-            Category: t.type === 'Transfer' ? `${t.source} -> ${t.toSource}` : t.source,
-            Type: t.type,
-            Amount: Math.abs(t.amount),
-            Sign: t.type === 'Transfer' ? 'Neutral' : t.amount > 0 ? "Credit" : "Debit"
-        }));
+        const accountStats = accounts.map(acc => {
+             const beforeTxs = transactions.filter(t => {
+                 const tDate = new Date(parseISO(t.timestamp).setHours(0,0,0,0));
+                 const sDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+                 return isBefore(tDate, sDate);
+             });
+             const openingTxSum = beforeTxs.reduce((sum, t) => {
+                 if (t.type !== 'Transfer' && t.source === acc.name) return sum + t.amount;
+                 if (t.type === 'Transfer' && t.source === acc.name) return sum - t.amount;
+                 if (t.type === 'Transfer' && t.toSource === acc.name) return sum + t.amount;
+                 return sum;
+             }, 0);
+             const openingBalance = acc.initialBalance + openingTxSum;
 
-        const worksheet = XLSX.utils.json_to_sheet(exportData);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Transactions");
+             const periodTxSum = filteredTransactions.reduce((sum, t) => {
+                 if (t.type !== 'Transfer' && t.source === acc.name) return sum + t.amount;
+                 if (t.type === 'Transfer' && t.source === acc.name) return sum - t.amount;
+                 if (t.type === 'Transfer' && t.toSource === acc.name) return sum + t.amount;
+                 return sum;
+             }, 0);
+             const closingBalance = openingBalance + periodTxSum;
 
-        const fileName = `PocketLedger_${format(startDate, 'yyyyMMdd')}_to_${format(endDate, 'yyyyMMdd')}.xlsx`;
-        XLSX.writeFile(workbook, fileName);
+             return { name: acc.name, openingBalance, closingBalance };
+        });
+
+        const globalClosingBalance = accountStats.reduce((sum, a) => sum + a.closingBalance, 0);
+
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet("Financial Report");
+
+        sheet.columns = [
+            { width: 25 },
+            { width: 35 },
+            { width: 25 },
+            { width: 15 },
+            { width: 15 },
+            { width: 15 }
+        ];
+
+        const titleRow = sheet.addRow(["PocketLedger Financial Report"]);
+        titleRow.font = { size: 16, bold: true };
+        sheet.mergeCells('A1:F1');
+        
+        const dateRow = sheet.addRow([`Date Range: ${format(startDate, 'MMM d, yyyy')} to ${format(endDate, 'MMM d, yyyy')}`]);
+        dateRow.font = { italic: true, color: { argb: 'FF666666' } };
+        sheet.mergeCells('A2:F2');
+        
+        sheet.addRow([]);
+
+        const summaryHeader = sheet.addRow(["Summary Metrics", "", "", "", "", ""]);
+        summaryHeader.font = { bold: true };
+        summaryHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+        sheet.mergeCells(`A${summaryHeader.number}:F${summaryHeader.number}`);
+
+        sheet.addRow(["Total Balance (Closing)", globalClosingBalance]);
+        sheet.addRow(["Total Income", totals.income]);
+        sheet.addRow(["Total Expense", totals.expense]);
+        sheet.addRow(["Net Flow", totals.net]);
+        
+        [5, 6, 7, 8].forEach(rowNum => {
+            sheet.getCell(`B${rowNum}`).numFmt = '₹#,##0.00;[Red]₹-#,##0.00';
+        });
+
+        sheet.addRow([]);
+
+        const accountHeaderTitle = sheet.addRow(["Account Balances", "", "", "", "", ""]);
+        accountHeaderTitle.font = { bold: true };
+        accountHeaderTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+        sheet.mergeCells(`A${accountHeaderTitle.number}:F${accountHeaderTitle.number}`);
+
+        const accColHeader = sheet.addRow(["Account Name", "Opening Balance", "Closing Balance"]);
+        accColHeader.font = { bold: true };
+        accColHeader.eachCell((cell) => {
+             cell.border = { bottom: { style: 'thin' } };
+        });
+
+        accountStats.forEach(acc => {
+            const row = sheet.addRow([acc.name, acc.openingBalance, acc.closingBalance]);
+            row.getCell(2).numFmt = '₹#,##0.00;[Red]₹-#,##0.00';
+            row.getCell(3).numFmt = '₹#,##0.00;[Red]₹-#,##0.00';
+        });
+
+        sheet.addRow([]);
+
+        const logHeaderTitle = sheet.addRow(["Transactions Log", "", "", "", "", ""]);
+        logHeaderTitle.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        logHeaderTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F75B5' } };
+        sheet.mergeCells(`A${logHeaderTitle.number}:F${logHeaderTitle.number}`);
+
+        const txHeaders = ["Date", "Description", "Category", "Type", "Amount", "Sign"];
+        const txHeaderRow = sheet.addRow(txHeaders);
+        txHeaderRow.font = { bold: true };
+        txHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+        txHeaderRow.eachCell(cell => {
+            cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        });
+
+        filteredTransactions.forEach(t => {
+            const row = sheet.addRow([
+                format(parseISO(t.timestamp), 'PPp'),
+                t.title,
+                t.type === 'Transfer' ? `${t.source} -> ${t.toSource}` : t.source,
+                t.type,
+                Math.abs(t.amount),
+                t.type === 'Transfer' ? 'Neutral' : t.amount > 0 ? "Credit" : "Debit"
+            ]);
+
+            row.getCell(5).numFmt = '₹#,##0.00;[Red]₹-#,##0.00';
+
+            row.eachCell(cell => {
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FFDDDDDD' } },
+                    left: { style: 'thin', color: { argb: 'FFDDDDDD' } },
+                    bottom: { style: 'thin', color: { argb: 'FFDDDDDD' } },
+                    right: { style: 'thin', color: { argb: 'FFDDDDDD' } }
+                };
+            });
+            
+            const signCell = row.getCell(6);
+            if (signCell.value === 'Credit') signCell.font = { color: { argb: 'FF00B050' }, bold: true };
+            if (signCell.value === 'Debit') signCell.font = { color: { argb: 'FFFF0000' }, bold: true };
+        });
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `PocketLedger_${format(startDate, 'yyyyMMdd')}_to_${format(endDate, 'yyyyMMdd')}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
     };
 
     return (
