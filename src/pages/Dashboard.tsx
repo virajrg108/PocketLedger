@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import React, { useRef, useState, useEffect } from "react";
-import { DollarSign, Trash2, Wallet } from "lucide-react";
+import { Trash2, IndianRupee } from "lucide-react";
 import { formatCurrency, cn } from "@/lib/utils";
 
 const FitText = ({ children, className, align = "left" }: { children: React.ReactNode; className?: string; align?: "left" | "center" }) => {
@@ -114,7 +114,7 @@ export function Dashboard() {
                         <Card key={acc.id} className="gap-0 bg-gradient-to-br from-zinc-800/80 to-zinc-900/90 border-0 ring-0 text-zinc-50 shadow-sm">
                             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                                 <CardTitle className="text-sm font-medium truncate pr-2">{acc.name}</CardTitle>
-                                <DollarSign className="w-4 h-4 shrink-0 text-zinc-400" />
+                                <IndianRupee className="w-4 h-4 shrink-0 text-zinc-400" />
                             </CardHeader>
                             <CardContent>
                                 <FitText className={`text-xl font-bold ${currentBalance < 0 ? 'text-rose-400' : 'text-zinc-50'}`}>
