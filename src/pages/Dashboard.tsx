@@ -7,8 +7,49 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import React, { useRef, useState, useEffect } from "react";
 import { DollarSign, Trash2 } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
+
+const FitText = ({ children, className }: { children: React.ReactNode; className?: string }) => {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const textRef = useRef<HTMLDivElement>(null);
+    const [scale, setScale] = useState(1);
+
+    useEffect(() => {
+        const resizeObserver = new ResizeObserver(() => {
+            if (!containerRef.current || !textRef.current) return;
+            textRef.current.style.transform = 'scale(1)';
+            const containerWidth = containerRef.current.clientWidth;
+            const textWidth = textRef.current.scrollWidth;
+            if (textWidth > containerWidth && textWidth > 0) {
+                setScale(containerWidth / textWidth);
+            } else {
+                setScale(1);
+            }
+        });
+
+        if (containerRef.current) {
+            resizeObserver.observe(containerRef.current);
+        }
+        return () => resizeObserver.disconnect();
+    }, [children]);
+
+    return (
+        <div ref={containerRef} className={cn("flex items-center overflow-hidden whitespace-nowrap w-full", className)}>
+            <div
+                ref={textRef}
+                style={{
+                    transform: `scale(${scale})`,
+                    transformOrigin: "left center",
+                    willChange: "transform"
+                }}
+            >
+                {children}
+            </div>
+        </div>
+    );
+};
 
 export function Dashboard() {
     const transactions = useLiveQuery(() => db.transactions.orderBy('timestamp').reverse().toArray());
@@ -28,13 +69,13 @@ export function Dashboard() {
     };
 
     return (
-        <div className="flex flex-col flex-1 p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
+        <div className="flex flex-col flex-1 p-2 md:p-8 space-y-4 animate-in fade-in duration-500">
             <div>
-                <h2 className="text-3xl font-bold tracking-tight text-zinc-50">Overview</h2>
-                <p className="text-zinc-400">Your financial snapshot based on local data.</p>
+                <h2 className="text-lg md:text-3xl font-bold tracking-tight text-zinc-50">Overview</h2>
+                <p className="text-zinc-400  text-sm md:text-lg">Your financial snapshot</p>
             </div>
 
-            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
                 {accounts.map(acc => {
                     const txSum = transactions.reduce((sum, t) => {
                         if (t.type !== 'Transfer' && t.source === acc.name) {
@@ -49,22 +90,22 @@ export function Dashboard() {
                     const currentBalance = acc.initialBalance + txSum;
 
                     return (
-                        <Card key={acc.id} className="bg-zinc-900 border-zinc-800 text-zinc-50 col-span-2 lg:col-span-1">
+                        <Card key={acc.id} className="bg-gradient-to-br from-zinc-800/80 to-zinc-900/90 border-0 ring-0 text-zinc-50 shadow-sm">
                             <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                                <CardTitle className="text-sm font-medium">{acc.name}</CardTitle>
-                                <DollarSign className="w-4 h-4 text-zinc-400" />
+                                <CardTitle className="text-sm font-medium truncate pr-2">{acc.name}</CardTitle>
+                                <DollarSign className="w-4 h-4 shrink-0 text-zinc-400" />
                             </CardHeader>
                             <CardContent>
-                                <div className={`text-2xl font-bold ${currentBalance < 0 ? 'text-rose-400' : 'text-zinc-50'}`}>
+                                <FitText className={`text-xl font-bold ${currentBalance < 0 ? 'text-rose-400' : 'text-zinc-50'}`}>
                                     {currentBalance < 0 ? '-' : ''}{formatCurrency(currentBalance)}
-                                </div>
+                                </FitText>
                             </CardContent>
                         </Card>
                     );
                 })}
             </div>
 
-            <Card className="bg-zinc-900 border-zinc-800 text-zinc-50">
+            <Card className="bg-zinc-950/80 border-0 ring-0 text-zinc-50 shadow-md">
                 <CardHeader>
                     <CardTitle>Recent History</CardTitle>
                     <CardDescription className="text-zinc-400">Your most recent local transactions.</CardDescription>

@@ -58,9 +58,16 @@ function Layout() {
         </div>
       </nav>
 
-      <main className="flex-1 w-full max-w-5xl mx-auto md:p-8">
-        <Outlet />
-      </main>
+      <div className="flex-1 w-full flex flex-col min-w-0">
+        <header className="md:hidden flex items-center p-4 border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md sticky top-0 z-40">
+          <img src="/pwa-64x64.png" alt="Logo" className="w-6 h-6 mr-2 rounded-sm" />
+          <h1 className="text-xl font-bold tracking-tight text-zinc-50">PocketLedger</h1>
+        </header>
+
+        <main className="flex-1 w-full max-w-5xl mx-auto md:p-8">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 }

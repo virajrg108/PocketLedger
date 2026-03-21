@@ -59,10 +59,10 @@ export function Settings() {
     };
 
     return (
-        <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
+        <div className="p-4 md:p-8 space-y-4 animate-in fade-in duration-500">
             <div>
-                <h2 className="text-3xl font-bold tracking-tight text-zinc-50">Settings</h2>
-                <p className="text-zinc-400">Manage your custom accounts and starting balances.</p>
+                <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-zinc-50">Settings</h2>
+                <p className="text-zinc-400 text-sm md:text-lg">Manage your custom accounts and starting balances.</p>
             </div>
 
             <Card className="max-w-2xl bg-zinc-900 border-zinc-800 text-zinc-50">

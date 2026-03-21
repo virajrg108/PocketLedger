@@ -161,8 +161,8 @@ export function TransactionForm() {
             <Card className="max-w-xl mx-auto bg-zinc-900 border-zinc-800 text-zinc-50">
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div>
-                        <CardTitle className="text-2xl">{isEditing ? "Edit Entry" : "New Entry"}</CardTitle>
-                        <CardDescription className="text-zinc-400">Log a new financial transaction offline.</CardDescription>
+                        <CardTitle className="text-lg">{isEditing ? "Edit Entry" : "New Entry"}</CardTitle>
+                        <CardDescription className="text-zinc-400 text-sm md:text-lg">Log a new financial transaction offline.</CardDescription>
                     </div>
                     {isEditing && (
                         <Button variant="destructive" size="icon" onClick={handleDelete}>
@@ -209,26 +209,24 @@ export function TransactionForm() {
                                         <FormItem className="flex flex-col pt-2.5">
                                             <FormLabel>Date</FormLabel>
                                             <Popover>
-                                                <PopoverTrigger>
-                                                    <div>
-                                                        <FormControl>
-                                                            <Button
-                                                                variant={"outline"}
-                                                                className={cn(
-                                                                    "w-full pl-3 text-left font-normal bg-zinc-950 border-zinc-800 hover:bg-zinc-800 hover:text-zinc-50 text-zinc-300",
-                                                                    !field.value && "text-muted-foreground"
-                                                                )}
-                                                            >
-                                                                {field.value ? (
-                                                                    format(field.value, "PPP")
-                                                                ) : (
-                                                                    <span>Pick a date</span>
-                                                                )}
-                                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                            </Button>
-                                                        </FormControl>
-                                                    </div>
-                                                </PopoverTrigger>
+                                                <FormControl>
+                                                    <PopoverTrigger render={
+                                                        <Button
+                                                            variant={"outline"}
+                                                            className={cn(
+                                                                "w-full pl-3 text-left font-normal bg-zinc-950 border-zinc-800 hover:bg-zinc-800 hover:text-zinc-50 text-zinc-300",
+                                                                !field.value && "text-muted-foreground"
+                                                            )}
+                                                        />
+                                                    }>
+                                                        {field.value ? (
+                                                            format(field.value, "PPP")
+                                                        ) : (
+                                                            <span>Pick a date</span>
+                                                        )}
+                                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                    </PopoverTrigger>
+                                                </FormControl>
                                                 <PopoverContent className="w-auto p-0 bg-zinc-900 border-zinc-800" align="start">
                                                     <Calendar
                                                         mode="single"

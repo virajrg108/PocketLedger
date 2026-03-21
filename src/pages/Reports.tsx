@@ -69,10 +69,10 @@ export function Reports() {
     };
 
     return (
-        <div className="p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
+        <div className="p-4 md:p-8 space-y-4 animate-in fade-in duration-500">
             <div>
-                <h2 className="text-3xl font-bold tracking-tight text-zinc-50">Reports & Exports</h2>
-                <p className="text-zinc-400">Analyze your spending and extract offline backups.</p>
+                <h2 className="text-lg md:text-3xl font-bold tracking-tight text-zinc-50">Reports & Exports</h2>
+                <p className="text-zinc-400 text-sm md:text-lg">Analyze your spending and extract offline backups.</p>
             </div>
 
             <div className="flex flex-col md:flex-row items-center justify-between gap-1 bg-zinc-900 border border-zinc-800 rounded-lg p-3">
