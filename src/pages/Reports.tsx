@@ -67,7 +67,10 @@ function isFullMonthRange(startDate: Date, endDate: Date) {
     const start = toDateOnly(startDate);
     const end = toDateOnly(endDate);
 
-    return isEqual(start, startOfMonth(start)) && isEqual(end, endOfMonth(end)) && start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+    return isEqual(start, toDateOnly(startOfMonth(start))) &&
+        isEqual(end, toDateOnly(endOfMonth(end))) &&
+        start.getMonth() === end.getMonth() &&
+        start.getFullYear() === end.getFullYear();
 }
 
 function getReportName(startDate: Date, endDate: Date) {
