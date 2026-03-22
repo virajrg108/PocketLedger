@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import ExcelJS from "exceljs";
 import { format, startOfMonth, endOfMonth, parseISO, isAfter, isBefore, isEqual } from "date-fns";
-import { Download, Calendar as CalendarIcon, Filter } from "lucide-react";
+import { Download, Calendar as CalendarIcon, Filter, Upload } from "lucide-react";
 
-import { db } from "../db";
+import { db, type Transaction } from "../db";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
@@ -18,9 +18,70 @@ import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
+const GOOGLE_SHEETS_ENDPOINT_KEY = "pocketledger.googleSheetsEndpoint";
+
+interface AccountReportRow {
+    name: string;
+    openingBalance: number;
+    closingBalance: number;
+}
+
+interface ReportPayload {
+    reportName: string;
+    exportedAt: string;
+    dateRange: {
+        start: string;
+        end: string;
+        label: string;
+    };
+    totals: {
+        income: number;
+        expense: number;
+        net: number;
+        closingBalance: number;
+    };
+    accounts: AccountReportRow[];
+    transactions: Array<Pick<Transaction, "id" | "timestamp" | "title" | "amount" | "type" | "source" | "toSource" | "category">>;
+}
+
+function isValidHttpUrl(value: string) {
+    try {
+        const url = new URL(value);
+        return url.protocol === "http:" || url.protocol === "https:";
+    } catch {
+        return false;
+    }
+}
+
+function buildGoogleSheetsTestUrl(endpoint: string) {
+    const url = new URL(endpoint);
+    url.searchParams.set("action", "test");
+    return url.toString();
+}
+
+function toDateOnly(value: Date) {
+    return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+}
+
+function isFullMonthRange(startDate: Date, endDate: Date) {
+    const start = toDateOnly(startDate);
+    const end = toDateOnly(endDate);
+
+    return isEqual(start, startOfMonth(start)) && isEqual(end, endOfMonth(end)) && start.getMonth() === end.getMonth() && start.getFullYear() === end.getFullYear();
+}
+
+function getReportName(startDate: Date, endDate: Date) {
+    if (isFullMonthRange(startDate, endDate)) {
+        return format(startDate, "yyyy-MM");
+    }
+
+    return `${format(startDate, "yyyyMMdd")}_to_${format(endDate, "yyyyMMdd")}`;
+}
+
 export function Reports() {
     const [startDate, setStartDate] = useState<Date>(startOfMonth(new Date()));
     const [endDate, setEndDate] = useState<Date>(endOfMonth(new Date()));
+    const [isExportingToGoogleSheet, setIsExportingToGoogleSheet] = useState(false);
 
     const transactions = useLiveQuery(() => db.transactions.orderBy('timestamp').reverse().toArray());
     const accounts = useLiveQuery(() => db.accounts.toArray());
@@ -46,14 +107,10 @@ export function Reports() {
         return acc;
     }, { income: 0, expense: 0, net: 0 });
 
-    const exportToExcel = async () => {
-        if (!transactions || !accounts) return;
-        if (filteredTransactions.length === 0) {
-            alert("No data available to export in this date range.");
-            return;
-        }
+    const getReportData = () => {
+        if (!transactions || !accounts) return null;
 
-        const accountStats = accounts.map(acc => {
+        const accountStats: AccountReportRow[] = accounts.map(acc => {
             const beforeTxs = transactions.filter(t => {
                 const tDate = new Date(parseISO(t.timestamp).setHours(0, 0, 0, 0));
                 const sDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
@@ -79,6 +136,99 @@ export function Reports() {
         });
 
         const globalClosingBalance = accountStats.reduce((sum, a) => sum + a.closingBalance, 0);
+        const reportName = getReportName(startDate, endDate);
+        const reportPayload: ReportPayload = {
+            reportName,
+            exportedAt: new Date().toISOString(),
+            dateRange: {
+                start: startDate.toISOString(),
+                end: endDate.toISOString(),
+                label: `${format(startDate, 'MMM d, yyyy')} to ${format(endDate, 'MMM d, yyyy')}`,
+            },
+            totals: {
+                income: totals.income,
+                expense: totals.expense,
+                net: totals.net,
+                closingBalance: globalClosingBalance,
+            },
+            accounts: accountStats,
+            transactions: filteredTransactions.map((transaction) => ({
+                id: transaction.id,
+                timestamp: transaction.timestamp,
+                title: transaction.title,
+                amount: transaction.amount,
+                type: transaction.type,
+                source: transaction.source,
+                toSource: transaction.toSource,
+                category: transaction.category,
+            })),
+        };
+
+        return { accountStats, globalClosingBalance, reportName, reportPayload };
+    };
+
+    const getGoogleSheetsEndpoint = async () => {
+        const savedEndpoint = localStorage.getItem(GOOGLE_SHEETS_ENDPOINT_KEY)?.trim() ?? "";
+        let candidateEndpoint = savedEndpoint;
+
+        if (candidateEndpoint) {
+            const shouldReuse = window.confirm(
+                `Use the saved Google Sheets endpoint?\n\n${candidateEndpoint}\n\nPress OK to reuse it or Cancel to enter a different one.`
+            );
+
+            if (shouldReuse) {
+                return candidateEndpoint;
+            }
+        }
+
+        const enteredEndpoint = window.prompt(
+            "Enter the Google Apps Script endpoint URL for Google Sheets export.",
+            candidateEndpoint
+        );
+
+        if (enteredEndpoint === null) {
+            return null;
+        }
+
+        candidateEndpoint = enteredEndpoint.trim();
+
+        if (!candidateEndpoint || !isValidHttpUrl(candidateEndpoint)) {
+            alert("Please enter a valid http or https endpoint URL.");
+            return null;
+        }
+
+        try {
+            const response = await fetch(buildGoogleSheetsTestUrl(candidateEndpoint), {
+                method: "GET",
+            });
+
+            if (!response.ok) {
+                throw new Error(`Request failed with status ${response.status}`);
+            }
+
+            const result = await response.json() as { success?: boolean };
+            if (!result.success) {
+                throw new Error("Endpoint test did not report success.");
+            }
+        } catch (error) {
+            console.error("Failed to validate Google Sheets endpoint", error);
+            alert("The Google Sheets endpoint test failed. Please confirm the Apps Script web app URL is correct and deployed.");
+            return null;
+        }
+
+        localStorage.setItem(GOOGLE_SHEETS_ENDPOINT_KEY, candidateEndpoint);
+        return candidateEndpoint;
+    };
+
+    const exportToExcel = async () => {
+        const reportData = getReportData();
+        if (!reportData) return;
+        if (filteredTransactions.length === 0) {
+            alert("No data available to export in this date range.");
+            return;
+        }
+
+        const { accountStats, globalClosingBalance, reportName } = reportData;
 
         const workbook = new ExcelJS.Workbook();
         const sheet = workbook.addWorksheet("Financial Report");
@@ -114,15 +264,15 @@ export function Reports() {
             const hCell = metricsHeader.getCell(i);
             const vCell = metricsValues.getCell(i);
 
-            hCell.font = { bold: true, color: { argb: textColors[i-1] } };
-            hCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: headerColors[i-1] } };
+            hCell.font = { bold: true, color: { argb: textColors[i - 1] } };
+            hCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: headerColors[i - 1] } };
             hCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
-            vCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: headerColors[i-1] } };
+            vCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: headerColors[i - 1] } };
             vCell.alignment = { horizontal: 'center', vertical: 'middle' };
-            
+
             if (i <= 3) {
-                vCell.font = { color: { argb: textColors[i-1] } };
+                vCell.font = { color: { argb: textColors[i - 1] } };
                 vCell.numFmt = '₹#,##0.00;₹-#,##0.00';
             } else {
                 vCell.numFmt = '₹#,##0.00;[Red]₹-#,##0.00';
@@ -210,9 +360,46 @@ export function Reports() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `PocketLedger_${format(startDate, 'yyyyMMdd')}_to_${format(endDate, 'yyyyMMdd')}.xlsx`;
+        a.download = `PocketLedger_${reportName}.xlsx`;
         a.click();
         URL.revokeObjectURL(url);
+    };
+
+    const exportToGoogleSheet = async () => {
+        const reportData = getReportData();
+        if (!reportData) return;
+        if (filteredTransactions.length === 0) {
+            alert("No data available to export in this date range.");
+            return;
+        }
+
+        const endpoint = await getGoogleSheetsEndpoint();
+        if (!endpoint) {
+            return;
+        }
+
+        setIsExportingToGoogleSheet(true);
+
+        try {
+            const response = await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(reportData.reportPayload),
+            });
+
+            if (!response.ok) {
+                throw new Error(`Request failed with status ${response.status}`);
+            }
+
+            alert("Report exported to Google Sheet successfully.");
+        } catch (error) {
+            console.error("Failed to export to Google Sheet", error);
+            alert("Failed to export to Google Sheet. Please verify the endpoint and try again.");
+        } finally {
+            setIsExportingToGoogleSheet(false);
+        }
     };
 
     return (
@@ -271,10 +458,25 @@ export function Reports() {
                     </Popover>
                 </div>
 
-                <Button onClick={exportToExcel} size="sm" className="w-full md:w-auto bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-medium whitespace-nowrap">
-                    <Download className="w-4 h-4 mr-2" />
-                    Export
-                </Button>
+                <div className="flex w-full md:w-auto flex-col sm:flex-row gap-2">
+                    <Button
+                        onClick={exportToExcel}
+                        size="sm"
+                        className="w-full md:w-auto bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-medium whitespace-nowrap"
+                    >
+                        <Download className="w-4 h-4 mr-2" />
+                        Download as Excel File
+                    </Button>
+                    <Button
+                        onClick={exportToGoogleSheet}
+                        size="sm"
+                        disabled={isExportingToGoogleSheet}
+                        className="w-full md:w-auto bg-blue-500 hover:bg-blue-600 text-white font-medium whitespace-nowrap disabled:opacity-70"
+                    >
+                        <Upload className="w-4 h-4 mr-2" />
+                        {isExportingToGoogleSheet ? "Exporting..." : "Export to Google Sheet"}
+                    </Button>
+                </div>
             </div>
 
             <Card className="bg-zinc-900 border-zinc-800 text-zinc-50">
