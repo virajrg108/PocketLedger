@@ -54,28 +54,28 @@ export function Reports() {
         }
 
         const accountStats = accounts.map(acc => {
-             const beforeTxs = transactions.filter(t => {
-                 const tDate = new Date(parseISO(t.timestamp).setHours(0,0,0,0));
-                 const sDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
-                 return isBefore(tDate, sDate);
-             });
-             const openingTxSum = beforeTxs.reduce((sum, t) => {
-                 if (t.type !== 'Transfer' && t.source === acc.name) return sum + t.amount;
-                 if (t.type === 'Transfer' && t.source === acc.name) return sum - t.amount;
-                 if (t.type === 'Transfer' && t.toSource === acc.name) return sum + t.amount;
-                 return sum;
-             }, 0);
-             const openingBalance = acc.initialBalance + openingTxSum;
+            const beforeTxs = transactions.filter(t => {
+                const tDate = new Date(parseISO(t.timestamp).setHours(0, 0, 0, 0));
+                const sDate = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+                return isBefore(tDate, sDate);
+            });
+            const openingTxSum = beforeTxs.reduce((sum, t) => {
+                if (t.type !== 'Transfer' && t.source === acc.name) return sum + t.amount;
+                if (t.type === 'Transfer' && t.source === acc.name) return sum - t.amount;
+                if (t.type === 'Transfer' && t.toSource === acc.name) return sum + t.amount;
+                return sum;
+            }, 0);
+            const openingBalance = acc.initialBalance + openingTxSum;
 
-             const periodTxSum = filteredTransactions.reduce((sum, t) => {
-                 if (t.type !== 'Transfer' && t.source === acc.name) return sum + t.amount;
-                 if (t.type === 'Transfer' && t.source === acc.name) return sum - t.amount;
-                 if (t.type === 'Transfer' && t.toSource === acc.name) return sum + t.amount;
-                 return sum;
-             }, 0);
-             const closingBalance = openingBalance + periodTxSum;
+            const periodTxSum = filteredTransactions.reduce((sum, t) => {
+                if (t.type !== 'Transfer' && t.source === acc.name) return sum + t.amount;
+                if (t.type === 'Transfer' && t.source === acc.name) return sum - t.amount;
+                if (t.type === 'Transfer' && t.toSource === acc.name) return sum + t.amount;
+                return sum;
+            }, 0);
+            const closingBalance = openingBalance + periodTxSum;
 
-             return { name: acc.name, openingBalance, closingBalance };
+            return { name: acc.name, openingBalance, closingBalance };
         });
 
         const globalClosingBalance = accountStats.reduce((sum, a) => sum + a.closingBalance, 0);
@@ -85,8 +85,8 @@ export function Reports() {
 
         sheet.columns = [
             { width: 25 },
-            { width: 35 },
             { width: 25 },
+            { width: 20 },
             { width: 15 },
             { width: 15 },
             { width: 15 }
@@ -95,85 +95,114 @@ export function Reports() {
         const titleRow = sheet.addRow(["PocketLedger Financial Report"]);
         titleRow.font = { size: 16, bold: true };
         sheet.mergeCells('A1:F1');
-        
+
         const dateRow = sheet.addRow([`Date Range: ${format(startDate, 'MMM d, yyyy')} to ${format(endDate, 'MMM d, yyyy')}`]);
         dateRow.font = { italic: true, color: { argb: 'FF666666' } };
         sheet.mergeCells('A2:F2');
-        
-        sheet.addRow([]);
-
-        const summaryHeader = sheet.addRow(["Summary Metrics", "", "", "", "", ""]);
-        summaryHeader.font = { bold: true };
-        summaryHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-        sheet.mergeCells(`A${summaryHeader.number}:F${summaryHeader.number}`);
-
-        sheet.addRow(["Total Balance (Closing)", globalClosingBalance]);
-        sheet.addRow(["Total Income", totals.income]);
-        sheet.addRow(["Total Expense", totals.expense]);
-        sheet.addRow(["Net Flow", totals.net]);
-        
-        [5, 6, 7, 8].forEach(rowNum => {
-            sheet.getCell(`B${rowNum}`).numFmt = '₹#,##0.00;[Red]₹-#,##0.00';
-        });
 
         sheet.addRow([]);
 
-        const accountHeaderTitle = sheet.addRow(["Account Balances", "", "", "", "", ""]);
-        accountHeaderTitle.font = { bold: true };
-        accountHeaderTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-        sheet.mergeCells(`A${accountHeaderTitle.number}:F${accountHeaderTitle.number}`);
+        const metricsHeader = sheet.addRow(["Total Balance (Closing)", "Total Income", "Total Expense", "Net Flow", "", "", ""]);
+        metricsHeader.height = 22.5;
+        const metricsValues = sheet.addRow([globalClosingBalance, totals.income, totals.expense, totals.net, "", "", ""]);
+        metricsValues.height = 22.5;
 
-        const accColHeader = sheet.addRow(["Account Name", "Opening Balance", "Closing Balance"]);
-        accColHeader.font = { bold: true };
-        accColHeader.eachCell((cell) => {
-             cell.border = { bottom: { style: 'thin' } };
-        });
+        const headerColors = ['FF1F4E79', 'FF70AD47', 'FFC00000', 'FFD9D9D9'];
+        const textColors = ['FFFFFFFF', 'FFFFFFFF', 'FFFFFFFF', 'FF000000'];
+
+        for (let i = 1; i <= 4; i++) {
+            const hCell = metricsHeader.getCell(i);
+            const vCell = metricsValues.getCell(i);
+
+            hCell.font = { bold: true, color: { argb: textColors[i-1] } };
+            hCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: headerColors[i-1] } };
+            hCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+            vCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: headerColors[i-1] } };
+            vCell.alignment = { horizontal: 'center', vertical: 'middle' };
+            
+            if (i <= 3) {
+                vCell.font = { color: { argb: textColors[i-1] } };
+                vCell.numFmt = '₹#,##0.00;₹-#,##0.00';
+            } else {
+                vCell.numFmt = '₹#,##0.00;[Red]₹-#,##0.00';
+            }
+        }
+
+        sheet.addRow([]);
+
+        const accountHeaderTitle = sheet.addRow(["Account Balances", "", "", ""]);
+        sheet.mergeCells(`A${accountHeaderTitle.number}:C${accountHeaderTitle.number}`);
+        for (let i = 1; i <= 3; i++) {
+            const cell = accountHeaderTitle.getCell(i);
+            cell.font = { bold: true };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+            cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        }
+
+        const accColHeader = sheet.addRow(["Account Name", "Opening Balance", "Closing Balance", ""]);
+        for (let i = 1; i <= 3; i++) {
+            const cell = accColHeader.getCell(i);
+            cell.font = { bold: true };
+            cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+        }
 
         accountStats.forEach(acc => {
-            const row = sheet.addRow([acc.name, acc.openingBalance, acc.closingBalance]);
+            const row = sheet.addRow([acc.name, acc.openingBalance, acc.closingBalance, ""]);
             row.getCell(2).numFmt = '₹#,##0.00;[Red]₹-#,##0.00';
             row.getCell(3).numFmt = '₹#,##0.00;[Red]₹-#,##0.00';
+            for (let i = 1; i <= 3; i++) {
+                row.getCell(i).border = { top: { style: 'thin', color: { argb: 'FFDDDDDD' } }, left: { style: 'thin', color: { argb: 'FFDDDDDD' } }, bottom: { style: 'thin', color: { argb: 'FFDDDDDD' } }, right: { style: 'thin', color: { argb: 'FFDDDDDD' } } };
+            }
         });
 
         sheet.addRow([]);
 
         const logHeaderTitle = sheet.addRow(["Transactions Log", "", "", "", "", ""]);
-        logHeaderTitle.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-        logHeaderTitle.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F75B5' } };
         sheet.mergeCells(`A${logHeaderTitle.number}:F${logHeaderTitle.number}`);
-
-        const txHeaders = ["Date", "Description", "Category", "Type", "Amount", "Sign"];
-        const txHeaderRow = sheet.addRow(txHeaders);
-        txHeaderRow.font = { bold: true };
-        txHeaderRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
-        txHeaderRow.eachCell(cell => {
+        for (let i = 1; i <= 6; i++) {
+            const cell = logHeaderTitle.getCell(i);
+            cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2F75B5' } };
             cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-        });
+        }
 
-        filteredTransactions.forEach(t => {
+        const txHeaders = ["Date", "Description", "Account", "Category", "Type", "Amount"];
+        const txHeaderRow = sheet.addRow(txHeaders);
+        for (let i = 1; i <= 6; i++) {
+            const cell = txHeaderRow.getCell(i);
+            cell.font = { bold: true };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9E1F2' } };
+            cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        }
+
+        filteredTransactions.forEach((t, index) => {
             const row = sheet.addRow([
                 format(parseISO(t.timestamp), 'PPp'),
                 t.title,
                 t.type === 'Transfer' ? `${t.source} -> ${t.toSource}` : t.source,
+                t.category || '-',
                 t.type,
-                Math.abs(t.amount),
-                t.type === 'Transfer' ? 'Neutral' : t.amount > 0 ? "Credit" : "Debit"
+                t.amount
             ]);
 
-            row.getCell(5).numFmt = '₹#,##0.00;[Red]₹-#,##0.00';
+            row.getCell(6).numFmt = '₹#,##0.00;[Red]₹-#,##0.00';
 
-            row.eachCell(cell => {
+            const isAlt = index % 2 === 1;
+
+            for (let i = 1; i <= 6; i++) {
+                const cell = row.getCell(i);
                 cell.border = {
                     top: { style: 'thin', color: { argb: 'FFDDDDDD' } },
                     left: { style: 'thin', color: { argb: 'FFDDDDDD' } },
                     bottom: { style: 'thin', color: { argb: 'FFDDDDDD' } },
                     right: { style: 'thin', color: { argb: 'FFDDDDDD' } }
                 };
-            });
-            
-            const signCell = row.getCell(6);
-            if (signCell.value === 'Credit') signCell.font = { color: { argb: 'FF00B050' }, bold: true };
-            if (signCell.value === 'Debit') signCell.font = { color: { argb: 'FFFF0000' }, bold: true };
+                if (isAlt) {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9F9F9' } };
+                }
+            }
         });
 
         const buffer = await workbook.xlsx.writeBuffer();
